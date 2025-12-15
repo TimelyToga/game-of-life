@@ -1,23 +1,42 @@
 CC = clang
-CFLAGS = -Wall -Wextra -std=c99 -O3 -I/opt/homebrew/include -I/usr/local/include
+CFLAGS = -Wall -Wextra -std=c99 -O3
+INCLUDES = -I/opt/homebrew/include -I/usr/local/include
 LDFLAGS = -L/opt/homebrew/lib -L/usr/local/lib -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 
 BUILD_DIR = build
-TARGET_MAIN = $(BUILD_DIR)/gol
-SRC_MAIN = main.c
+TARGET = $(BUILD_DIR)/gol
 
-all: $(TARGET_MAIN)
+# Auto-discover all .c files
+SRCS = $(wildcard *.c)
+OBJS = $(SRCS:%.c=$(BUILD_DIR)/%.o)
+DEPS = $(OBJS:.o=.d)
+
+all: $(TARGET)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-$(TARGET_MAIN): $(SRC_MAIN) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(SRC_MAIN) -o $(TARGET_MAIN) $(LDFLAGS)
+# Compile .c to .o with automatic dependency generation
+$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
+
+# Link all object files
+$(TARGET): $(OBJS)
+	$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
+
+# Include dependency files (if they exist)
+-include $(DEPS)
 
 clean:
 	rm -rf $(BUILD_DIR)
 
-run: $(TARGET_MAIN)
-	./$(TARGET_MAIN)
+run: $(TARGET)
+	./$(TARGET)
 
-.PHONY: all clean run
+# Debug build with symbols and no optimization
+debug: CFLAGS = -Wall -Wextra -std=c99 -g -O0
+debug: clean all
+
+rebuild: clean all
+
+.PHONY: all clean run debug rebuild
